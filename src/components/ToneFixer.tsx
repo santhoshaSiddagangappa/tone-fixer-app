@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { Copy, Check, Settings, User, Sparkles, ChevronDown, Menu, X, Zap, Target, Globe, TrendingUp } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { Copy, Check, Settings, User, Sparkles, ChevronDown, Menu, X, Zap, Target, Globe, TrendingUp, AlertCircle } from 'lucide-react';
 
 const ToneFixer = () => {
   const [text, setText] = useState('');
@@ -14,136 +14,208 @@ const ToneFixer = () => {
   const [copied, setCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
+  const [error, setError] = useState('');
+
+  // Abort controller for request cancellation
+  const abortControllerRef = useRef(null);
 
   // Animation trigger
   useEffect(() => {
     setIsVisible(true);
   }, []);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+
   const professions = [
     "Software Engineer",
-        "Frontend Developer",
-        "Backend Developer",
-        "Full Stack Developer",
-        "UX/UI Designer",
-        "Product Manager",
-        "Data Scientist",
-        "Data Analyst",
-        "Teacher / Educator",
-        "Professor / Lecturer",
-        "Doctor",
-        "Nurse",
-        "Pharmacist",
-        "Dentist",
-        "Surgeon",
-        "Psychologist",
-        "Therapist / Counselor",
-        "Scientist / Researcher",
-        "Lab Technician",
-        "Engineer (Mechanical, Civil, Electrical)",
-        "Architect",
-        "Construction Worker",
-        "Electrician",
-        "Plumber",
-        "Carpenter",
-        "Chef / Cook",
-        "Baker",
-        "Artist / Painter",
-        "Musician / Composer",
-        "Actor / Performer",
-        "Writer / Author / Editor",
-        "Journalist / Reporter",
-        "Photographer",
-        "Graphic Designer",
-        "Marketing Specialist",
-        "Sales Executive",
-        "Customer Support",
-        "HR Specialist",
-        "Consultant",
-        "Manager / Team Lead",
-        "Project Manager",
-        "Business Analyst",
-        "Entrepreneur / Startup Founder",
-        "Lawyer / Legal Advisor",
-        "Judge",
-        "Police Officer",
-        "Firefighter",
-        "Paramedic",
-        "Social Worker",
-        "Coach / Mentor",
-        "Student",
-        "Freelancer / Gig Worker",
-        "Logistics Manager",
-        "Event Planner",
-        "Healthcare Administrator",
-        "Other"
+    "Frontend Developer",
+    "Backend Developer",
+    "Full Stack Developer",
+    "UX/UI Designer",
+    "Product Manager",
+    "Data Scientist",
+    "Data Analyst",
+    "Teacher / Educator",
+    "Professor / Lecturer",
+    "Doctor",
+    "Nurse",
+    "Pharmacist",
+    "Dentist",
+    "Surgeon",
+    "Psychologist",
+    "Therapist / Counselor",
+    "Scientist / Researcher",
+    "Lab Technician",
+    "Engineer (Mechanical, Civil, Electrical)",
+    "Architect",
+    "Construction Worker",
+    "Electrician",
+    "Plumber",
+    "Carpenter",
+    "Chef / Cook",
+    "Baker",
+    "Artist / Painter",
+    "Musician / Composer",
+    "Actor / Performer",
+    "Writer / Author / Editor",
+    "Journalist / Reporter",
+    "Photographer",
+    "Graphic Designer",
+    "Marketing Specialist",
+    "Sales Executive",
+    "Customer Support",
+    "HR Specialist",
+    "Consultant",
+    "Manager / Team Lead",
+    "Project Manager",
+    "Business Analyst",
+    "Entrepreneur / Startup Founder",
+    "Lawyer / Legal Advisor",
+    "Judge",
+    "Police Officer",
+    "Firefighter",
+    "Paramedic",
+    "Social Worker",
+    "Coach / Mentor",
+    "Student",
+    "Freelancer / Gig Worker",
+    "Logistics Manager",
+    "Event Planner",
+    "Healthcare Administrator",
+    "Other"
   ];
 
   const tones = [
     "Friendly",
-        "Professional",
-        "Formal",
-        "Casual",
-        "Persuasive",
-        "Humorous",
-        "Inspirational",
-        "Motivational",
-        "Confident",
-        "Polite",
-        "Empathetic",
-        "Compassionate",
-        "Encouraging",
-        "Concise",
-        "Direct",
-        "Technical",
-        "Optimistic",
-        "Positive",
-        "Urgent",
-        "Action-Oriented",
-        "Respectful",
-        "Authoritative",
-        "Sincere",
-        "Warm",
-        "Energetic",
-        "Cheerful",
-        "Calm",
-        "Reassuring",
-        "Professional yet Friendly",
-        "Formal yet Approachable",
-        "Other"
+    "Professional",
+    "Formal",
+    "Casual",
+    "Persuasive",
+    "Humorous",
+    "Inspirational",
+    "Motivational",
+    "Confident",
+    "Polite",
+    "Empathetic",
+    "Compassionate",
+    "Encouraging",
+    "Concise",
+    "Direct",
+    "Technical",
+    "Optimistic",
+    "Positive",
+    "Urgent",
+    "Action-Oriented",
+    "Respectful",
+    "Authoritative",
+    "Sincere",
+    "Warm",
+    "Energetic",
+    "Cheerful",
+    "Calm",
+    "Reassuring",
+    "Professional yet Friendly",
+    "Formal yet Approachable",
+    "Other"
   ];
 
-  const handleFixTone = async () => {
-    if (!text.trim()) return;
-    
+  // Debounced validation
+  const validateForm = useCallback(() => {
+    if (!text.trim()) return 'Please enter some text';
+    if (text.length > 2000) return 'Text too long (max 2000 characters)';
+    if (!profession) return 'Please select a profession';
+    if (!tone) return 'Please select a tone';
+    if (profession === 'Other' && !customProfession.trim()) return 'Please specify your profession';
+    if (tone === 'Other' && !customTone.trim()) return 'Please specify the desired tone';
+    return null;
+  }, [text, profession, tone, customProfession, customTone]);
+
+  const handleFixTone = useCallback(async () => {
+    // Validate form
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
+    // Cancel any existing request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    // Create new abort controller
+    abortControllerRef.current = new AbortController();
+
     setIsLoading(true);
-    console.log(profession);
-    console.log(tone);
+    setError('');
+    setOutputText(''); // Clear previous result
+
     try {
-          const response = await fetch("/api/fix-tone", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              text,
-              profession: profession === "Other" ? customProfession : profession,
-              tone: tone === "Other" ? customTone : tone
-            }),
-          });
+      const requestBody = {
+        text: text.trim(),
+        profession: profession === "Other" ? customProfession.trim() : profession,
+        tone: tone === "Other" ? customTone.trim() : tone
+      };
 
-          const data = await response.json();
+      console.log('Sending request:', requestBody);
 
-          if (data.result) {
-            setOutputText(data.result);
-          } else {
-            setOutputText("⚠️ No response from AI");
-          }
-        } catch (error) {
-          console.error('Error:', error);
-          setOutputText("⚠️ Error calling API");
-        } finally {
-          setIsLoading(false);
-        }
-  };
+      const response = await fetch("/api/fix-tone", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortControllerRef.current.signal, // Enable cancellation
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.result) {
+        setOutputText(data.result);
+        setError('');
+      } else {
+        throw new Error('No result received from API');
+      }
+
+    } catch (error) {
+      console.error('Request error:', error);
+
+      if (error.name === 'AbortError') {
+        console.log('Request was cancelled');
+        return; // Don't show error for cancelled requests
+      }
+
+      // User-friendly error messages
+      let errorMessage = 'Something went wrong. Please try again.';
+
+      if (error.message?.includes('timeout')) {
+        errorMessage = 'Request timed out. Please try again.';
+      } else if (error.message?.includes('rate limit')) {
+        errorMessage = 'Too many requests. Please wait a moment and try again.';
+      } else if (error.message?.includes('network')) {
+        errorMessage = 'Network error. Please check your connection.';
+      }
+
+      setError(errorMessage);
+      setOutputText('');
+    } finally {
+      setIsLoading(false);
+      abortControllerRef.current = null;
+    }
+  }, [text, profession, tone, customProfession, customTone, validateForm]);
 
   const copyToClipboard = async () => {
     await navigator.clipboard.writeText(outputText);
@@ -152,7 +224,8 @@ const ToneFixer = () => {
   };
 
   const charCount = text.length;
-  const isDisabled = !text.trim() || isLoading;
+  const isFormValid = !validateForm();
+  const isDisabled = !isFormValid || isLoading;
 
   const features = [
     { icon: Zap, title: "Instant Results", desc: "AI-powered tone transformation in seconds" },
@@ -195,7 +268,7 @@ const ToneFixer = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Enhanced Navigation */}
             <nav className="hidden lg:flex items-center space-x-8">
               <a href="#" className="text-gray-700 hover:text-indigo-600 transition-all duration-300 font-medium relative group">
@@ -257,23 +330,23 @@ const ToneFixer = () => {
             <TrendingUp className="h-4 w-4 text-blue-600" />
             <span className="text-sm font-semibold text-blue-800">Transform Communication Instantly</span>
           </div>
-          
+
           <h2 className="text-5xl lg:text-6xl font-black text-gray-900 mb-6 leading-tight">
             Perfect Your
             <span className="bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent block">
               Professional Tone
             </span>
           </h2>
-          
+
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8 leading-relaxed">
-            Instantly transform your writing with AI-powered tone adjustment. 
+            Instantly transform your writing with AI-powered tone adjustment.
             Perfect for emails, messages, and any professional communication that needs the right touch.
           </p>
 
           {/* Feature Pills */}
           <div className="flex flex-wrap justify-center gap-4 mb-12">
             {features.map((feature, index) => (
-              <div 
+              <div
                 key={index}
                 className={`flex items-center space-x-2 bg-white/60 backdrop-blur-sm px-4 py-2 rounded-full border border-white/30 shadow-sm transform transition-all duration-700 hover:scale-105 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-4 opacity-0'}`}
                 style={{ transitionDelay: `${index * 200 + 300}ms` }}
@@ -287,6 +360,15 @@ const ToneFixer = () => {
 
         {/* Enhanced Main Form */}
         <div className={`bg-white/80 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/40 p-8 lg:p-12 mb-12 transform transition-all duration-1000 ${isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'}`} style={{ transitionDelay: '600ms' }}>
+
+          {/* Error Alert */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6 flex items-center space-x-2 animate-slideIn">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {/* Input Section */}
           <div className="mb-10">
             <div className="flex items-center space-x-2 mb-4">
@@ -297,7 +379,7 @@ const ToneFixer = () => {
                 Your Original Text
               </label>
             </div>
-            
+
             <div className="relative group">
               <textarea
                 id="input-text"
@@ -307,8 +389,12 @@ const ToneFixer = () => {
                 className="w-full h-52 p-6 border-2 border-gray-200 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 transition-all duration-300 resize-none bg-white/70 backdrop-blur-sm text-gray-800 placeholder-gray-400 group-hover:shadow-md group-hover:border-gray-300"
               />
               <div className="absolute bottom-4 right-6 flex items-center space-x-4">
-                <div className={`text-sm transition-colors duration-200 ${charCount > 1000 ? 'text-amber-600' : charCount > 500 ? 'text-blue-600' : 'text-gray-400'}`}>
-                  {charCount.toLocaleString()} characters
+                <div className={`text-sm transition-colors duration-200 ${
+                  charCount > 2000 ? 'text-red-600' :
+                  charCount > 1500 ? 'text-orange-600' :
+                  charCount > 500 ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                  {charCount.toLocaleString()}/2000 characters
                 </div>
                 {charCount > 0 && (
                   <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
