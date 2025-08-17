@@ -1,10 +1,10 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
 
-function generateSystemPrompt(tone, profession) {
+function generateSystemPrompt(tone: string, profession: string) {
   return `You are an expert communication assistant specializing in professional tone adjustment.
 
 Role: ${profession}
@@ -21,7 +21,7 @@ Instructions:
 Focus on making the communication effective and professional while matching the desired tone perfectly.`;
 }
 
-export async function POST(request) {
+export async function POST(request: NextRequest) {
   try {
     const { text, profession, tone } = await request.json();
 
@@ -60,7 +60,8 @@ Please rewrite this text with the specified tone and professional context. Provi
     // Return the result
     return NextResponse.json({ result: outputText });
 
-  } catch (error) {
+  } catch (err) {
+    const error = err as Error;
     console.error('Gemini API Error:', error);
 
     // Handle specific errors

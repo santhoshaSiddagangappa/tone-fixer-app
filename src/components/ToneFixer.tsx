@@ -17,7 +17,7 @@ const ToneFixer = () => {
   const [error, setError] = useState('');
 
   // Abort controller for request cancellation
-  const abortControllerRef = useRef(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Animation trigger
   useEffect(() => {
@@ -164,8 +164,6 @@ const ToneFixer = () => {
         tone: tone === "Other" ? customTone.trim() : tone
       };
 
-      console.log('Sending request:', requestBody);
-
       const response = await fetch("/api/fix-tone", {
         method: "POST",
         headers: {
@@ -190,7 +188,8 @@ const ToneFixer = () => {
         throw new Error('No result received from API');
       }
 
-    } catch (error) {
+    } catch (err) {
+      const error = err as Error;
       console.error('Request error:', error);
 
       if (error.name === 'AbortError') {
